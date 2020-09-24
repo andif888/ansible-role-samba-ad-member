@@ -1,0 +1,107 @@
+---
+# tasks file for ansible-role-samba-ad-member
+# - name: "Preseed Kerberos version 5"
+#   raw: "echo krb5-config krb5-config/default_realm string {{ samba_krb5_domain_name|upper }} | sudo debconf-set-selections"
+
+- name: Config hosts file
+  template:
+    src: templates/hosts.j2
+    dest: /etc/hosts
+
+- name: Config krb5.conf
+  template:
+    src: templates/krb5.conf.j2
+    dest: /etc/krb5.conf
+    mode: 0644
+    owner: root
+    group: root
+  notify: restart_samba_services
+
+
+- name: "Install dependencies" 
+  apt:
+    name: '{{ samba_packages }}'
+    update_cache: yes
+    state: present
+
+- name: Add ntp servers
+  lineinfile:
+    path: /etc/ntp.conf
+    line: 'server {{ item }}'
+  with_items: "{{ ntp_client_ntp_server_ip }}"
+  when: ntp_client_ntp_server_ip is defined
+
+- name: Sync time with AD
+  shell: systemctl stop ntp ; ntpdate {{ ntp_client_ntp_server_ip[0] }} && systemctl start ntp
+  register: timesync_result
+  changed_when: false
+  when: 
+    - ntp_client_ntp_server_ip is defined
+    - ntp_client_ntp_server_ip | length > 0
+
+- name: "Create sharedirs"
+  file:
+    path: '{{ item.path }}'
+    state: directory
+    mode: '2771'
+  with_items: '{{ samba_shares }}'
+  when: 
+    - samba_shares is defined
+    - samba_shares|length > 0
+
+
+- name:  "Download template smb.conf.j2 to /etc/samba/smb.conf"
+  template:
+    src: templates/smb.conf.j2
+    dest: /etc/samba/smb.conf
+    backup: yes
+  notify:
+    - restart_samba_services
+
+- name: "Joining domain: {{ samba_krb5_domain_name }}"
+  shell: "net ads join -U {{ samba_join_username }}%{{ samba_join_password }}"
+   
+- name: "Configure nsswitch for winbind - passwd"
+  template:
+    src: templates/nsswitch.conf.j2
+    dest: /etc/nsswitch.conf
+
+- name: Update pam.d common-session to autocreate home-dir
+  lineinfile:
+    path: /etc/pam.d/common-session
+    state: present
+    regexp: '^session required pam_mkhomedir.so umask=0022 skel=/etc/skel'
+    line: 'session required pam_mkhomedir.so umask=0022 skel=/etc/skel'
+
+- name: Updating sudors for Domain Admins users
+  lineinfile: 
+     path: /etc/sudoers
+     state: present
+     regexp: '^%{{ domain_admin_user_group }}'
+     line: '%{{ domain_admin_user_group }} ALL=(ALL:ALL) ALL'
+     validate: 'visudo -cf %s'
+  when: domain_admin_user_group is defined
+
+
+- name: "restart_samba_services"
+  service:
+    name: "{{ item }}"
+    state: restarted
+    enabled: yes
+  with_items:
+    - smbd
+    - nmbd
+    - winbind
+
+- name: "Set sharedirs permissions"
+  file:
+    path: '{{ item.path }}'
+    state: directory
+    mode: '2771'
+    owner: '{{ item.owner }}'
+    group: '{{ item.force_group }}'
+  with_items: '{{ samba_shares }}'
+  when: 
+    - samba_shares is defined
+    - samba_shares|length > 0
+

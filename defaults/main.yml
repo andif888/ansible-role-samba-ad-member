@@ -1,0 +1,29 @@
+---
+# defaults file for ansible-role-samba-ad-member
+samba_krb5_domain_name: test.de
+samba_krb5_domain_name_short: test
+samba_join_username: administrator
+samba_join_password: Passw0rd
+samba_password_server: 192.34.34.34
+samba_krb5_kdc_servers: dc1.test.de
+
+samba_idmap_uid: 10000-20000
+samba_idmap_gid: 10000-20000
+
+samba_packages:
+  - acl
+  - attr
+  - samba
+  - samba-dsdb-modules
+  - samba-vfs-modules
+  - winbind
+  - libpam-winbind
+  - libnss-winbind
+  - libpam-krb5
+  - krb5-config
+  - krb5-user
+  - ntp
+  - ntpdate
+
+# samba_shares:
+#   - { name: 'share', path: '/srv/tier5/samba/share', valid_users: '@PRIANTO\dfs_it', force_group: 'dfs_it', owner: 'root' }

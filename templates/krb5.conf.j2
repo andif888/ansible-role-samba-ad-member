@@ -1,0 +1,18 @@
+[logging]
+        default = FILE:/var/log/krb5.log
+
+[libdefaults]
+        default_realm = {{ samba_krb5_domain_name|upper }}
+        ticket_lifetime = 24000
+        clock_skew = 300
+
+[realms]
+    {{ samba_krb5_domain_name|upper }} = {
+        kdc = {{ samba_krb5_kdc_servers }}
+        admin_server = {{ samba_krb5_kdc_servers }}
+        default_domain = {{ samba_krb5_domain_name|upper }}
+    }
+
+[domain_realm]
+    .{{ samba_krb5_domain_name }} = {{ samba_krb5_domain_name|upper }}
+    {{ samba_krb5_domain_name }} = {{ samba_krb5_domain_name|upper }}
