@@ -43,7 +43,7 @@
   file:
     path: '{{ item.path }}'
     state: directory
-    mode: '2771'
+    mode: 02771
   with_items: '{{ samba_shares }}'
   when: 
     - samba_shares is defined
@@ -97,7 +97,7 @@
   file:
     path: '{{ item.path }}'
     state: directory
-    mode: '2771'
+    mode: 02771
     owner: '{{ item.owner }}'
     group: '{{ item.force_group }}'
   with_items: '{{ samba_shares }}'
