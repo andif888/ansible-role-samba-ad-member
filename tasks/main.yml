@@ -3,13 +3,13 @@
 # - name: "Preseed Kerberos version 5"
 #   raw: "echo krb5-config krb5-config/default_realm string {{ samba_krb5_domain_name|upper }} | sudo debconf-set-selections"
 
-- name: Config hosts file
-  template:
+- name: "Config hosts file"
+  ansible.builtin.template:
     src: templates/hosts.j2
     dest: /etc/hosts
 
-- name: Config krb5.conf
-  template:
+- name: "Config krb5.conf"
+  ansible.builtin.template:
     src: templates/krb5.conf.j2
     dest: /etc/krb5.conf
     mode: 0644
@@ -18,21 +18,21 @@
   notify: restart_samba_services
 
 
-- name: "Install dependencies" 
-  apt:
+- name: "Install dependencies"
+  ansible.builtin.apt:
     name: '{{ samba_packages }}'
     update_cache: yes
     state: present
 
-- name: Add ntp servers
-  lineinfile:
+- name: "Add ntp servers"
+  ansible.builtin.lineinfile:
     path: /etc/ntp.conf
     line: 'server {{ item }}'
   with_items: "{{ ntp_client_ntp_server_ip }}"
   when: ntp_client_ntp_server_ip is defined
 
-- name: Sync time with AD
-  shell: systemctl stop ntp ; ntpdate {{ ntp_client_ntp_server_ip[0] }} && systemctl start ntp
+- name: "Sync time with AD"
+  ansible.builtin.shell: systemctl stop ntp ; ntpdate {{ ntp_client_ntp_server_ip[0] }} && systemctl start ntp
   register: timesync_result
   changed_when: false
   when: 
@@ -40,18 +40,18 @@
     - ntp_client_ntp_server_ip | length > 0
 
 - name: "Create sharedirs"
-  file:
+  ansible.builtin.file:
     path: '{{ item.path }}'
     state: directory
     mode: 02771
   with_items: '{{ samba_shares }}'
   when: 
     - samba_shares is defined
-    - samba_shares|length > 0
+    - samba_shares | length > 0
 
 
 - name:  "Download template smb.conf.j2 to /etc/samba/smb.conf"
-  template:
+  ansible.builtin.template:
     src: templates/smb.conf.j2
     dest: /etc/samba/smb.conf
     backup: yes
@@ -59,32 +59,40 @@
     - restart_samba_services
 
 - name: "Joining domain: {{ samba_krb5_domain_name }}"
-  shell: "net ads join -U {{ samba_join_username }}%{{ samba_join_password }}"
+  ansible.builtin.shell: "net ads join -U {{ samba_join_username }}%{{ samba_join_password }}"
    
 - name: "Configure nsswitch for winbind - passwd"
-  template:
+  ansible.builtin.template:
     src: templates/nsswitch.conf.j2
     dest: /etc/nsswitch.conf
 
-- name: Update pam.d common-session to autocreate home-dir
-  lineinfile:
+- name: "Update pam.d common-session to autocreate home-dir"
+  ansible.builtin.lineinfile:
     path: /etc/pam.d/common-session
     state: present
     regexp: '^session required pam_mkhomedir.so umask=0022 skel=/etc/skel'
     line: 'session required pam_mkhomedir.so umask=0022 skel=/etc/skel'
 
-- name: Updating sudors for Domain Admins users
-  lineinfile: 
-     path: /etc/sudoers
-     state: present
-     regexp: '^%{{ domain_admin_user_group }}'
-     line: '%{{ domain_admin_user_group }} ALL=(ALL:ALL) ALL'
-     validate: 'visudo -cf %s'
+# - name: "Updating sudors for Domain Admins users"
+#   ansible.builtin.lineinfile: 
+#      path: /etc/sudoers
+#      state: present
+#      regexp: '^%{{ domain_admin_user_group }}'
+#      line: '%{{ domain_admin_user_group }} ALL=(ALL:ALL) ALL'
+#      validate: 'visudo -cf %s'
+#   when: domain_admin_user_group is defined
+
+- name: "Updating sudors for Domain Admins users"
+  ansible.builtin.template:
+    src: templates/sudoers.j2
+    dest: /etc/sudoers.d/domain-admins
+    owner: root
+    group: root
+    mode: '440'
   when: domain_admin_user_group is defined
 
-
 - name: "restart_samba_services"
-  service:
+  ansible.builtin.service:
     name: "{{ item }}"
     state: restarted
     enabled: yes
@@ -94,7 +102,7 @@
     - winbind
 
 - name: "Set sharedirs permissions"
-  file:
+  ansible.builtin.file:
     path: '{{ item.path }}'
     state: directory
     mode: 02771
@@ -103,5 +111,5 @@
   with_items: '{{ samba_shares }}'
   when: 
     - samba_shares is defined
-    - samba_shares|length > 0
+    - samba_shares | length > 0
 

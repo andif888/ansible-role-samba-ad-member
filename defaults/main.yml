@@ -27,3 +27,5 @@ samba_packages:
 
 # samba_shares:
 #   - { name: 'share', path: '/srv/tier5/samba/share', valid_users: '@PRIANTO\dfs_it', force_group: 'dfs_it', owner: 'root' }
+samba_shares: []
+...
